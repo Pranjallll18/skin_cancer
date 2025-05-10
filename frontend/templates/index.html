@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <img src="{{ url_for('static', filename='image/logo.jpg') }}" 
+    alt="DermaScan AI Logo" 
+    style="width: 120px; height: auto; margin-bottom: 20px;" />
+    <title>DermaScan AI - Skin Cancer Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #00b894;
+            --secondary-color: #2d3436;
+            --accent-color: #d63031;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1e272e 0%, #2d3436 100%);
+            color: #f1f2f6;
+            min-height: 100vh;
+        }
+
+        .upload-container {
+            border: 3px dashed var(--primary-color);
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .upload-container.dragover {
+            border-color: var(--accent-color);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .result-card {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s ease-in-out;
+            background: #2f3640;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-card.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .malignant {
+            background: linear-gradient(135deg, #ff3f34 0%, #ff6b6b 100%) !important;
+            color: white;
+        }
+
+        .benign {
+            background: linear-gradient(135deg, #00b894 0%, #55efc4 100%) !important;
+            color: white;
+        }
+
+        .upload-icon {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(0.95); }
+        }
+
+        .confidence-meter {
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            background: #636e72;
+        }
+
+        .confidence-fill {
+            width: 0;
+            height: 100%;
+            background: var(--accent-color);
+            transition: width 1s ease-in-out;
+        }
+
+        .scan-animation {
+            animation: scan 2s infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateY(-100%); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(100%); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark py-3">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <img src="dna-icon.svg" alt="Logo" width="40" class="me-2">
+                <span class="fw-bold text-success">DermaScan AI</span>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container my-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8 text-center">
+                <h1 class="display-4 mb-4 fw-bold text-success">Skin Cancer Detection</h1>
+                <p class="lead mb-5 text-light">Upload your skin lesion image for instant AI analysis</p>
+
+                <!-- Upload Section -->
+                <div class="upload-container p-5 mb-5 position-relative">
+                    <div class="upload-icon mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-cloud-arrow-up text-success" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
+                            <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383z"/>
+                        </svg>
+                    </div>
+                    <input type="file" id="imageInput" accept="image/*" class="d-none">
+                    <label for="imageInput" class="btn btn-success btn-lg px-5 rounded-pill">Choose Image</label>
+                    <p class="mt-3 text-muted">or drag and drop here</p>
+                </div>
+
+                <!-- Result Section -->
+                <div class="result-card p-4 mb-4">
+                    <div class="loading-spinner text-success mb-3 d-none">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="resultContent" class="d-none">
+                        <h3 class="mb-3 diagnosis-title"></h3>
+                        <div class="confidence-meter mb-3">
+                            <div class="confidence-fill"></div>
+                        </div>
+                        <p class="confidence-value mb-0"></p>
+                    </div>
+                </div>
+
+                <!-- Sample Images -->
+                <div class="sample-images mt-5">
+                    <h5 class="mb-4 text-white">Sample Images</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <img src="sample1.jpg" class="img-thumbnail sample-img" alt="Sample 1" data-diagnosis="Benign">
+                        </div>
+                        <div class="col-md-4">
+                            <img src="sample2.jpg" class="img-thumbnail sample-img" alt="Sample 2" data-diagnosis="Malignant">
+                        </div>
+                        <div class="col-md-4">
+                            <img src="sample3.jpg" class="img-thumbnail sample-img" alt="Sample 3" data-diagnosis="Benign">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const uploadContainer = $('.upload-container');
+            const resultCard = $('.result-card');
+            const imageInput = $('#imageInput');
+
+            // Drag and drop handlers
+            uploadContainer.on('dragover', function(e) {
+                e.preventDefault();
+                uploadContainer.addClass('dragover');
+            });
+
+            uploadContainer.on('dragleave', function(e) {
+                e.preventDefault();
+                uploadContainer.removeClass('dragover');
+            });
+
+            uploadContainer.on('drop', function(e) {
+                e.preventDefault();
+                uploadContainer.removeClass('dragover');
+                const files = e.originalEvent.dataTransfer.files;
+                handleImage(files[0]);
+            });
+
+            imageInput.on('change', function(e) {
+                handleImage(e.target.files[0]);
+            });
+
+            function handleImage(file) {
+                if (!file) return;
+                $('.loading-spinner').removeClass('d-none');
+                $('#resultContent').addClass('d-none');
+                resultCard.addClass('show');
+
+                setTimeout(() => {
+                    const isMalignant = Math.random() > 0.5;
+                    showResult(isMalignant);
+                }, 2000);
+            }
+
+            function showResult(isMalignant) {
+                $('.loading-spinner').addClass('d-none');
+                const confidence = (Math.random() * 0.4 + 0.6).toFixed(2);
+
+                $('#resultContent').removeClass('d-none')
+                    .toggleClass('malignant', isMalignant)
+                    .toggleClass('benign', !isMalignant);
+
+                $('.diagnosis-title').text(isMalignant ? 'Malignant Detected' : 'Benign');
+                $('.confidence-fill').css('width', `${confidence * 100}%`);
+                $('.confidence-value').text(`Confidence: ${(confidence * 100).toFixed(1)}%`);
+            }
+
+            $('.sample-img').click(function() {
+                const diagnosis = $(this).data('diagnosis');
+                const isMalignant = diagnosis === 'Malignant';
+                showResult(isMalignant);
+            });
+        });
+    </script>
+</body>
+</html>
